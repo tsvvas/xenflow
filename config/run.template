@@ -1,0 +1,16 @@
+params {
+    xenium_dir = [
+        "${System.getenv('PROJECTDIR')}/raw_data/output-xenium-1",
+        "${System.getenv('PROJECTDIR')}/raw_data/output-xenium-2",
+    ]
+    detect_tissue_kernel_size = 100 
+    cnmf_components = '7,30'   
+    cnmf_n_iter     = 50
+    cnmf_n_highvar  = 3000
+    seed            = 0
+    queue           = 'normal'
+}
+
+process {
+    errorStrategy   = 'finish'
+}

@@ -1,0 +1,15 @@
+{
+    "notebook.formatOnSave.enabled": true,
+    "notebook.codeActionsOnSave": {
+        "notebook.source.organizeImports": "explicit"
+    },
+    "[python]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "debugpy.debugJustMyCode": false,
+    "jupyter.debugJustMyCode": false
+}
