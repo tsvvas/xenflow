@@ -1,6 +1,7 @@
 nextflow.enable.dsl = 2
 
 include { CONVERT_XENIUM }     from './modules/convert_xenium.nf'
+include { RESEGMENT_CELLS }    from './modules/resegment_cells.nf'
 include { DETECT_TISSUE }      from './modules/detect_tissue.nf'
 include { SPLIT_SAMPLES }      from './modules/split_samples.nf'
 include { IDENTIFY_PROGRAMS }  from './modules/identify_programs.nf'
@@ -11,7 +12,8 @@ workflow {
         .map { p -> tuple( p, p.name.split('__')[1] ) } 
         .set { xenium_ch }
     convert_out = CONVERT_XENIUM( xenium_ch )
-    detect_out  = DETECT_TISSUE( convert_out )
+    cells_reseg_out  = RESEGMENT_CELLS( convert_out )
+    detect_out       = DETECT_TISSUE( cells_reseg_out )
 
     regions_ch = detect_out.map { bbox, regions, fig, id -> tuple( regions, id ) }
     convert_keyed = convert_out.map { z, id -> tuple( id, z ) }
