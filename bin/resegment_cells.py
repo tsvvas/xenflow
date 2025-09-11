@@ -108,6 +108,8 @@ def main():
         "prior_shapes_key": "cell_boundaries",
     }
 
+    sdata.tables["xenium_table"] = sdata.tables["table"].copy()
+
     if args.method == "baysor":
         sopa.make_transcript_patches(sdata, **patches_config)
         sopa.segmentation.baysor(sdata, config=segment_config, key_added=args.method, min_area=20)
