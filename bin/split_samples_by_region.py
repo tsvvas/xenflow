@@ -52,7 +52,7 @@ def main() -> None:
             clip=False,
         )
 
-        adata = roi_sdata.tables["table"]
+        adata = roi_sdata.tables["xenium_table"]
         sc.pp.filter_cells(adata, min_counts=10)
         adata.obs["sample_uid"] = f"{args.sample_id}_{region_id}"
 
