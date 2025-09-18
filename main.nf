@@ -16,7 +16,7 @@ workflow {
     detect_out       = DETECT_TISSUE( cells_reseg_out )
 
     regions_ch = detect_out.map { bbox, regions, fig, id -> tuple( regions, id ) }
-    convert_keyed = convert_out.map { z, id -> tuple( id, z ) }
+    convert_keyed = cells_reseg_out.map { z, id -> tuple( id, z ) }
     regions_keyed = regions_ch .map { r, id -> tuple( id, r ) }
 
     split_in = convert_keyed.join( regions_keyed ).map { id, z, r -> tuple( z, r, id ) }
