@@ -1,12 +1,20 @@
 #!/usr/bin/env python
 import argparse
 import json
+import os
 from pathlib import Path
 
 import sopa
 import spatialdata
 
 sopa.settings.parallelization_backend = "dask"
+sopa.settings.dask_client_kwargs = {
+    "n_workers": int(os.getenv("REQUESTED_CPUS")),
+    "processes": True,
+    "threads_per_worker": 1,
+    "dashboard_address": ":8787",
+}
+sopa.log.setLevel(sopa.logging.ERROR)
 
 
 def _parse_args() -> argparse.Namespace:
