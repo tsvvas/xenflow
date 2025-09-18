@@ -48,6 +48,7 @@ process RESEGMENT_CELLS {
     """
     export RAPIDS_NO_INITIALIZE=1
     export DASK_DATAFRAME__QUERY_PLANNING=False
+    export REQUESTED_CPUS=${task.cpus}
     source /opt/conda/etc/profile.d/conda.sh
     conda activate spatial
 
