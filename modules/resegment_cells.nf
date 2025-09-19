@@ -21,7 +21,7 @@ process RESEGMENT_CELLS {
         tuple path(zarr_file), val(sample_id)
 
     output:
-        tuple path("${sample_id}_reseg.zarr"), val(sample_id)
+        tuple path("${sample_id}_reseg_cells.zarr"), val(sample_id)
 
     beforeScript '''
     export NUMBA_CACHE_DIR=${TMPDIR:-/tmp}
@@ -29,14 +29,14 @@ process RESEGMENT_CELLS {
     '''
 
     script:
-    def config_json
+    def segment_config_json
     switch (params.cell_segment_method?.toLowerCase()) {
         case 'baysor':
-            config_json = prettyPrint(toJson(params.baysor))
+            segment_config_json = prettyPrint(toJson(params.baysor))
             break
         case 'proseg':
             // Proseg wrapper in sopa doesn't have config
-            config_json = ""
+            segment_config_json = ""
             break
         default:
             throw new IllegalArgumentException(
@@ -45,19 +45,23 @@ process RESEGMENT_CELLS {
             )
     }
 
+    def patch_config_json = prettyPrint(toJson(params.transcript_patches))
+
     """
     export RAPIDS_NO_INITIALIZE=1
     export DASK_DATAFRAME__QUERY_PLANNING=False
-    export REQUESTED_CPUS=${task.cpus}
     source /opt/conda/etc/profile.d/conda.sh
     conda activate spatial
 
-    printf '%s\n' '${config_json}' > segment_config.json
+    printf '%s\n' '${segment_config_json}' > segment_config.json
+    printf '%s\n' '${patch_config_json}' > patch_config.json
 
     resegment_cells.py \
         --xenium_file     ${zarr_file} \
-        --out             ${sample_id}_reseg.zarr \
+        --out             ${sample_id}_reseg_cells.zarr \
         --method          ${params.cell_segment_method} \
-        --config          segment_config.json
+        --segment-config  segment_config.json \
+        --patch-config    patch_config.json \
+        --n-workers       ${task.cpus}
     """
 }
