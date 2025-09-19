@@ -6,7 +6,7 @@
 process SPLIT_SAMPLES {
 
     tag        "${sample_id}"
-    publishDir "${workflow.launchDir}/${params.outdir_h5ad}", mode: 'copy'
+    publishDir "${workflow.launchDir}/${params.outdir_root}/${params.outdir_h5ad}", mode: 'copy'
     container  "${params.containerdir}/sopa.sif"   
 
     cpus           params.cpus

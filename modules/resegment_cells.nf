@@ -8,7 +8,7 @@ import static groovy.json.JsonOutput.toJson
 
 process RESEGMENT_CELLS {                         
     tag          "${sample_id}"
-    publishDir   "${workflow.launchDir}/${params.outdir_reseg}", mode: 'copy'
+    publishDir   "${workflow.launchDir}/${params.outdir_root}/${params.outdir_reseg}", mode: 'copy'
     container    "${params.containerdir}/sopa.sif"
 
     cpus           params.cpus
