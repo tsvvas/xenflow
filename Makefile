@@ -7,7 +7,7 @@ RUN_CONFIG ?= config/run01.config
 RESOURCES_CONFIG := config/resources.config
 RUN_ARGS ?= 
 CLEAN_ARGS ?= -n
-WHICH_FAILED = awk -F'\t' '!($$4 ~ /^[[:space:]]*OK[[:space:]]*$/) { print $$3 }'
+WHICH_FAILED = awk -F'\t' '!($$4 ~ /^[[:space:]]*OK[[:space:]]*$$/) { print $$3 }'
 
 .PHONY: env_create env_remove nf_clean nf_run 
 
