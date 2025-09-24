@@ -5,7 +5,7 @@
 process IDENTIFY_PROGRAMS {
 
     tag        "${h5ad_file.baseName}"                     
-    publishDir "${workflow.launchDir}/${params.outdir_programs}", mode: 'copy'
+    publishDir "${workflow.launchDir}/${params.outdir_root}/${params.outdir_programs}", mode: 'copy'
     container  "${params.containerdir}/sopa.sif"
 
     cpus    params.cpus

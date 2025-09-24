@@ -11,5 +11,7 @@
         }
     },
     "debugpy.debugJustMyCode": false,
-    "jupyter.debugJustMyCode": false
+    "jupyter.debugJustMyCode": false,
+    "notebook.defaultFormatter": "charliermarsh.ruff",
+    "nextflow.telemetry.enabled": false
 }

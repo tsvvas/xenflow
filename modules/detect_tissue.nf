@@ -4,7 +4,7 @@
  */
 process DETECT_TISSUE {
     tag        "${sample_id}"
-    publishDir "${workflow.launchDir}/${params.outdir_coords}", mode: 'copy'
+    publishDir "${workflow.launchDir}/${params.outdir_root}/${params.outdir_coords}", mode: 'copy'
     container  "${params.containerdir}/sopa.sif"
 
     cpus    params.cpus
