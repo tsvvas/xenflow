@@ -3,49 +3,38 @@
  * Re-segments cells using transcript molecules (e.g., Baysor or ProSeg)
  * and writes updated labels into a SpatialData-formatted Zarr.
  */
-import static groovy.json.JsonOutput.prettyPrint
-import static groovy.json.JsonOutput.toJson
 
-process RESEGMENT_CELLS {                         
-    tag          "${sample_id}"
-    publishDir   "${workflow.launchDir}/${params.outdir_root}/${params.outdir_reseg}", mode: 'copy'
-    container    "${params.containerdir}/sopa.sif"
+process RESEGMENT_CELLS {
+    tag "${sample_id}"
+    publishDir "${workflow.launchDir}/${params.outdir_root}/${params.outdir_reseg}", mode: 'copy'
+    container "${params.containerdir}/sopa.sif"
 
-    cpus           params.cpus
-    memory         params.mem
-    time           params.time
-    queue          params.queue
+    cpus params.cpus
+    memory params.mem
+    time params.time
+    queue params.queue
     clusterOptions params.cluster_opts
-
-    input:
-        tuple path(zarr_file), val(sample_id)
-
-    output:
-        tuple path("${sample_id}_reseg_cells.zarr"), val(sample_id)
 
     beforeScript '''
     export NUMBA_CACHE_DIR=${TMPDIR:-/tmp}
     export MPLCONFIGDIR=${XDG_CACHE_HOME}/.matplotlib
     '''
 
+    input:
+    tuple path(zarr_file), val(sample_id)
+
+    output:
+    tuple path("${sample_id}_reseg_cells.zarr"), val(sample_id)
+
     script:
-    def segment_config_json
-    switch (params.cell_segment_method?.toLowerCase()) {
-        case 'baysor':
-            segment_config_json = prettyPrint(toJson(params.baysor))
-            break
-        case 'proseg':
-            // Proseg wrapper in sopa doesn't have config
-            segment_config_json = ""
-            break
-        default:
-            throw new IllegalArgumentException(
-                "Unknown cell segmentation method: '${params.cell_segment_method}'. " +
-                "Supported: 'baysor', 'proseg'."
-            )
+    def method = params.cell_segment_method?.toLowerCase()
+
+    if (method != 'baysor' && method != 'proseg') {
+        throw new IllegalArgumentException("Unknown cell segmentation method: '${params.cell_segment_method}'. Supported: 'baysor', 'proseg'.")
     }
 
-    def patch_config_json = prettyPrint(toJson(params.transcript_patches))
+    def segment_config_json = method == 'baysor' ? JsonUtils.toPrettyJson(params.baysor) : ""
+    def patch_config_json = JsonUtils.toPrettyJson(params.transcript_patches)
 
     """
     export RAPIDS_NO_INITIALIZE=1
