@@ -15,13 +15,13 @@ workflow {
     cells_reseg_out  = RESEGMENT_CELLS( convert_out )
     detect_out       = DETECT_TISSUE( cells_reseg_out )
 
-    regions_ch = detect_out.map { bbox, regions, fig, id -> tuple( regions, id ) }
+    regions_ch = detect_out.map { _bbox, regions, _fig, id -> tuple( regions, id ) }
     convert_keyed = cells_reseg_out.map { z, id -> tuple( id, z ) }
     regions_keyed = regions_ch .map { r, id -> tuple( id, r ) }
 
     split_in = convert_keyed.join( regions_keyed ).map { id, z, r -> tuple( z, r, id ) }
     split_out = SPLIT_SAMPLES( split_in )
 
-    identify_in = split_out.flatMap { path, _ -> path }
-    identify_out = IDENTIFY_PROGRAMS( identify_in )
+    identify_in = split_out.flatMap { path, _sample_id -> path }
+    _identify_out = IDENTIFY_PROGRAMS( identify_in )
 }
