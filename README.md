@@ -15,7 +15,10 @@ Xenium spatial transcriptomics analysis pipeline built with Nextflow and Singula
 ## Key steps
 The workflow processes raw Xenium output through to the identification of gene programs with [cNMF](https://github.com/dylkot/cNMF).
 
+![Nextflow DAG](static/xenflow_dag.svg)
+
 - CONVERT_XENIUM converts raw data to [spatialdata](https://github.com/scverse/spatialdata)-formatted zarr archive for downstream processing.
+- RESEGMENT_NUCLEI applies [cellpose](https://github.com/MouseLand/cellpose) or [stardist](https://github.com/stardist/stardist) to resegment nuclei.
 - RESEGMENT_CELLS applies [Baysor](https://github.com/kharchenkolab/Baysor) or [Proseg](https://github.com/dcjones/proseg) to refine segmentation based on transcript distributions.
 - DETECT_TISSUE identifies tissue contours and bounding boxes, splitting multi-sample slides into independent samples (especially useful for tissue microarrays).
 - SPLIT_SAMPLES creates one AnnData h5ad archive per sample based on the tissue contours.
