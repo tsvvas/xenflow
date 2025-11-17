@@ -54,16 +54,18 @@ def main():
     segment_config = json.loads(args.segment_config.read_bytes())
     patches_config = json.loads(args.patch_config.read_bytes())
 
-    sdata.tables["xenium_table"] = sdata.tables["table"].copy()
+    prior_shapes_key = sdata.attrs["xenflow"]["current"]["nucleus_shapes"]
 
     if args.method == "baysor":
-        sopa.make_transcript_patches(sdata, **patches_config)
+        sopa.make_transcript_patches(sdata, prior_shapes_key=prior_shapes_key, **patches_config)
         sopa.segmentation.baysor(sdata, config=segment_config, key_added=args.method, min_area=20)
     elif args.method == "proseg":
-        sopa.make_transcript_patches(sdata, patch_width=None, prior_shapes_key="cell_boundaries")
+        sopa.make_transcript_patches(sdata, patch_width=None, prior_shapes_key=prior_shapes_key)
         sopa.segmentation.proseg(sdata, key_added=args.method)
+    sdata.attrs["xenflow"]["current"]["cell_shapes"] = args.method
 
     sopa.aggregate(sdata, shapes_key=args.method, aggregate_channels=False, key_added=None)
+    sdata.attrs["xenflow"]["current"]["cell_table"] = args.method + "_table"
     sdata.write(args.out.resolve())
 
 
