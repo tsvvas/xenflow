@@ -28,3 +28,13 @@ workflow {
     identify_in   = split_out.flatMap { path, _sample_id -> path }
     _identify_out = IDENTIFY_PROGRAMS( identify_in )
 }
+
+workflow FIRST_TWO {
+    channel
+        .fromPath( params.xenium_dir, checkIfExists: true )
+        .map { p -> tuple( p, p.name.split('__')[1] ) }
+        .set { xenium_ch }
+
+    convert_out      = CONVERT_XENIUM( xenium_ch )
+    _nuclei_reseg_out = RESEGMENT_NUCLEI( convert_out )
+}
