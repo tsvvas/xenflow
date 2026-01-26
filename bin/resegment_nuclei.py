@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import json
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -8,7 +9,7 @@ import sopa
 import spatialdata
 from scipy.optimize import nnls
 from skimage.exposure import rescale_intensity
-from skimage.morphology import disk, opening, white_tophat
+from skimage.morphology import disk, white_tophat
 from skimage.restoration import rolling_ball
 
 DAPI_KEY = "DAPI"
@@ -86,77 +87,155 @@ def subtract_background(img, radius, method="rolling_ball"):
         fg = np.maximum(img - bg, 0)
     elif method == "white_tophat":
         footprint = disk(int(max(1, radius)))
-        bg = opening(img, footprint=footprint)
         fg = white_tophat(img, footprint=footprint)
+        bg = img - fg
     else:
         raise ValueError(f"Unknown bg method: {method!r}")
     return fg, bg
 
 
-def unmix_channel(
-    image,
-    target_channel: str = "DAPI",
-    spillover_channels: list[str] | None = None,
+def stratified_bg_sample(
+    y: np.ndarray,
+    bg_nonzero: np.ndarray,
+    max_samples: int = 2_000_000,
+    n_bins: int = 32,
+    seed: int = 0,
+) -> np.ndarray:
+    if bg_nonzero.size <= max_samples:
+        return bg_nonzero
+
+    rng = np.random.default_rng(seed)
+    bg_values = y[bg_nonzero]
+
+    edges = np.quantile(bg_values, np.linspace(0, 1, n_bins + 1))
+    edges = np.unique(edges)
+
+    if edges.size < 3:
+        return rng.choice(bg_nonzero, size=max_samples, replace=False)
+
+    bin_id = np.digitize(bg_values, edges[1:-1], right=True)
+    per_bin = max_samples // (edges.size - 1)
+
+    chosen = []
+    for b in range(edges.size - 1):
+        candidates = bg_nonzero[bin_id == b]
+        if candidates.size == 0:
+            continue
+        take = min(per_bin, candidates.size)
+        chosen.append(rng.choice(candidates, size=take, replace=False))
+
+    if not chosen:
+        return rng.choice(bg_nonzero, size=max_samples, replace=False)
+
+    sampled = np.concatenate(chosen)
+    return sampled
+
+
+def regress_out_channel(
+    target_channel,
+    spillover_channel,
     keep_baseline: bool = False,
     bg_percentile: float = 35.0,
-    bg_method="rolling_ball",
-    rb_radius: int = 120,
 ):
-    if spillover_channels is None:
-        spillover_channels = ["ATP1A1/CD45/E-Cadherin"]
+    h, w = target_channel.shape
+    features = spillover_channel.reshape(1, -1).T
 
-    image_data = image["scale0"]["image"]
-    transformation = spatialdata.transformations.get_transformation(image)
-
-    target_f64 = image_data.sel(c=target_channel).astype(np.float64).values
-    target_f64, _ = subtract_background(target_f64, rb_radius, bg_method)
-    spillover_f64_raw = [image_data.sel(c=ch).astype(np.float64).values for ch in spillover_channels]
-    spillover_f64 = np.stack([subtract_background(ch, rb_radius, bg_method)[0] for ch in spillover_f64_raw], axis=0)
-
-    h, w = target_f64.shape
-    k = spillover_f64.shape[0]
-    features = spillover_f64.reshape(k, -1).T
-
-    y = target_f64.reshape(-1)
+    y = target_channel.reshape(-1)
     X = np.concatenate(
-        [np.ones((h * w, 1), dtype=np.float64), features],
+        [np.ones((h * w, 1)), features],
         axis=1,
     )
 
-    thr = np.percentile(target_f64, bg_percentile)
-    idx = (target_f64 <= thr).ravel()
-    beta, _ = nnls(X[idx], y[idx])
+    bg_threshold = np.percentile(target_channel, bg_percentile)
+    bg_mask = y <= bg_threshold
+    bg_nonzero = np.flatnonzero(bg_mask)
+
+    if bg_nonzero.size == 0:
+        raise ValueError("No background pixels selected; try increasing bg_percentile.")
+
+    bg_idx = stratified_bg_sample(y, bg_nonzero, n_bins=8)
+
+    beta, _ = nnls(X[bg_idx], y[bg_idx])
     if keep_baseline:
         weights = beta[1:, 0]
         predicted_spillover = (features @ weights).reshape(h, w)
     else:
         predicted_spillover = (X @ beta).reshape(h, w)
 
-    predicted_spillover = np.minimum(predicted_spillover, target_f64)
-    target_unmixed_f64 = target_f64 - predicted_spillover
+    predicted_spillover = np.minimum(predicted_spillover, target_channel)
+    target_unmixed_f64 = target_channel - predicted_spillover
 
     positive_values = target_unmixed_f64[target_unmixed_f64 > 0]
     if positive_values.size >= 16:
         p_min, p_max = np.percentile(positive_values, (0.5, 99.5))
     else:
         p_min, p_max = np.percentile(target_unmixed_f64, (0.5, 99.5))
-    u16_max = np.iinfo(np.uint16).max
-    epsilon = 1
-    target_unmixed_u16 = rescale_intensity(
-        target_unmixed_f64,
-        in_range=(p_min, p_max),
-        out_range=(epsilon, u16_max),
-    ).astype(np.uint16)
+
+    target_unmixed = np.clip(target_unmixed_f64, 0, None).astype(np.float32)
+
+    return target_unmixed, predicted_spillover, beta
+
+
+def unmix_channel(
+    image,
+    target_channel: str = "DAPI",
+    spillover_channel: str = "ATP1A1/CD45/E-Cadherin",
+    keep_baseline: bool = False,
+    bg_percentile: float = 35.0,
+    bg_method: str = "rolling_ball",
+    rb_radius: int = 9,
+    subtract_bg: bool = False,
+):
+    """
+    Unmix `target_channel` by regressing out spillover from `spillover_channel`.
+
+    Parameters
+    ----------
+    image : SpatialData Image2DModel object
+    target_channel : str
+    spillover_channel : str
+    keep_baseline : bool
+        Passed to regress_out_channel.
+    bg_percentile : float
+        Passed to regress_out_channel.
+    bg_method : str
+        Used only if subtract_bg=True.
+    rb_radius : int
+        Used only if subtract_bg=True.
+    subtract_bg : bool
+        If True, run subtract_background(...) on both target and spillover before regression.
+
+    Returns
+    -------
+    unmixed_element : spatialdata Image2DModel
+    """
+
+    image_data = image["scale0"]["image"]
+    transformation = spatialdata.transformations.get_transformation(image)
+
+    target_u16_raw = image_data.sel(c=target_channel).values
+    spillover_u16_raw = image_data.sel(c=spillover_channel).values
+
+    if subtract_bg:
+        target_u16, _ = subtract_background(target_u16_raw, rb_radius, bg_method)
+        spillover_u16, _ = subtract_background(spillover_u16_raw, rb_radius, bg_method)
+    else:
+        target_u16 = target_u16_raw
+        spillover_u16 = spillover_u16_raw
+
+    target_unmixed_u16, predicted_spillover, beta = regress_out_channel(
+        target_channel=target_u16,
+        spillover_channel=spillover_u16,
+        keep_baseline=keep_baseline,
+        bg_percentile=bg_percentile,
+    )
 
     arr_cyx = target_unmixed_u16[None, ...]
-
     unmixed_element = spatialdata.models.Image2DModel.parse(
         data=arr_cyx,
         dims=("c", "y", "x"),
         c_coords=[target_channel],
         transformations={"global": transformation},
-        scale_factors=None,
-        chunks=(1, min(512, h), min(512, w)),
     )
 
     return unmixed_element
@@ -175,8 +254,9 @@ def main():
         dapi_unmixed = unmix_channel(sdata.images[image_key], DAPI_KEY)
         sdata.images[UNMIXED_DAPI_KEY] = dapi_unmixed
         sdata.attrs["xenflow"]["current"]["morphology_image"] = UNMIXED_DAPI_KEY
-    else:
-        image_key = sdata.attrs["xenflow"]["current"]["morphology_image"]
+
+    image_key = sdata.attrs["xenflow"]["current"]["morphology_image"]
+    warnings.warn(f"{image_key=}")
 
     sopa.make_image_patches(sdata, image_key=image_key, **patches_config)
 
