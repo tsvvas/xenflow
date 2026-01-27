@@ -136,6 +136,7 @@ def regress_out_channel(
     spillover_channel,
     keep_baseline: bool = False,
     bg_percentile: float = 35.0,
+    rescale: bool = True,
 ):
     h, w = target_channel.shape
     features = spillover_channel.reshape(1, -1).T
@@ -165,13 +166,18 @@ def regress_out_channel(
     predicted_spillover = np.minimum(predicted_spillover, target_channel)
     target_unmixed_f64 = target_channel - predicted_spillover
 
-    positive_values = target_unmixed_f64[target_unmixed_f64 > 0]
-    if positive_values.size >= 16:
-        p_min, p_max = np.percentile(positive_values, (0.5, 99.5))
-    else:
-        p_min, p_max = np.percentile(target_unmixed_f64, (0.5, 99.5))
+    p_min = 0
+    p_max = np.percentile(target_unmixed_f64, 99.5)
 
-    target_unmixed = np.clip(target_unmixed_f64, 0, None).astype(np.float32)
+    if rescale:
+        u16_max = np.iinfo(np.uint16).max
+        target_unmixed = rescale_intensity(
+            target_unmixed_f64,
+            in_range=(p_min, p_max),
+            out_range=(0, u16_max),
+        ).astype(np.uint16)
+    else:
+        target_unmixed = np.clip(target_unmixed_f64, 0, None).astype(np.uint16)
 
     return target_unmixed, predicted_spillover, beta
 
@@ -185,6 +191,7 @@ def unmix_channel(
     bg_method: str = "rolling_ball",
     rb_radius: int = 9,
     subtract_bg: bool = False,
+    rescale: bool = True,
 ):
     """
     Unmix `target_channel` by regressing out spillover from `spillover_channel`.
@@ -228,6 +235,7 @@ def unmix_channel(
         spillover_channel=spillover_u16,
         keep_baseline=keep_baseline,
         bg_percentile=bg_percentile,
+        rescale=rescale,
     )
 
     arr_cyx = target_unmixed_u16[None, ...]
