@@ -1,4 +1,4 @@
-.SHELLFLAGS  := -ilc
+.SHELLFLAGS  := -lc
 .ONESHELL:
 
 ENV_NAME := nextflow
