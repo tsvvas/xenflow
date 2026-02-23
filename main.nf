@@ -29,12 +29,14 @@ workflow {
     _identify_out = IDENTIFY_PROGRAMS( identify_in )
 }
 
-workflow FIRST_TWO {
+workflow FIRST_HALF {
     channel
         .fromPath( params.xenium_dir, checkIfExists: true )
         .map { p -> tuple( p, p.name.split('__')[1] ) }
         .set { xenium_ch }
 
     convert_out      = CONVERT_XENIUM( xenium_ch )
-    _nuclei_reseg_out = RESEGMENT_NUCLEI( convert_out )
+    nuclei_reseg_out = RESEGMENT_NUCLEI( convert_out )
+    cells_reseg_out   = RESEGMENT_CELLS( nuclei_reseg_out )
+    _detect_out        = DETECT_TISSUE( cells_reseg_out )
 }
