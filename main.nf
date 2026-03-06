@@ -37,6 +37,11 @@ workflow FIRST_HALF {
 
     convert_out      = CONVERT_XENIUM( xenium_ch )
     nuclei_reseg_out = RESEGMENT_NUCLEI( convert_out )
-    cells_reseg_out   = RESEGMENT_CELLS( nuclei_reseg_out )
+    if( params.resegment_cells ) {
+            cells_reseg_out = RESEGMENT_CELLS( nuclei_reseg_out )
+        }
+        else {
+            cells_reseg_out = nuclei_reseg_out
+        }
     _detect_out        = DETECT_TISSUE( cells_reseg_out )
 }
