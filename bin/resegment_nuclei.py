@@ -287,6 +287,18 @@ def main():
         )
         sdata.attrs["xenflow"]["current"]["nucleus_shapes"] = STARDIST_KEY
 
+    # Table key is derived from nucleus_shapes key, e.g. cellpose_table
+    table_key = sdata.attrs["xenflow"]["current"]["nucleus_shapes"].split("_")[0] + "_table"
+    sopa.aggregate(
+        sdata,
+        aggregate_channels=False,
+        image_key=sdata.attrs["xenflow"]["current"]["morphology_image"],
+        shapes_key=sdata.attrs["xenflow"]["current"]["nucleus_shapes"],
+        key_added=table_key,
+        no_overlap=True,
+    )
+    sdata.attrs["xenflow"]["current"]["tx_table"] = table_key
+
     sdata.write(args.out.resolve())
 
 

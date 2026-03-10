@@ -129,7 +129,7 @@ def main():
     sopa.aggregate(
         sdata, image_key=image_key, shapes_key=current_cell_shapes_key, aggregate_channels=False, key_added=None
     )
-    sdata.attrs["xenflow"]["current"]["cell_table"] = current_cell_shapes_key + "_table"
+    sdata.attrs["xenflow"]["current"]["tx_table"] = current_cell_shapes_key + "_table"
     sdata.write(args.out.resolve())
 
 

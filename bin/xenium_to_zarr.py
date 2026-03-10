@@ -9,7 +9,7 @@ DEFAULT_XENFLOW_CONFIG = {
         "morphology_image": "morphology_focus",
         "nucleus_shapes": "nucleus_boundaries",
         "cell_shapes": "cell_boundaries",
-        "cell_table": "xenium_table",
+        "tx_table": "xenium_table",
     },
     "history": [],
     "schema_version": "",
