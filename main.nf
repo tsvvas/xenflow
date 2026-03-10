@@ -45,3 +45,27 @@ workflow FIRST_HALF {
         }
     _detect_out        = DETECT_TISSUE( cells_reseg_out )
 }
+
+workflow TEST {
+    xenium_ch = channel
+        .fromPath( params.test_zarr, checkIfExists: true )
+        .map { zarr ->
+            def sample_id = zarr.baseName
+            tuple( zarr, sample_id )
+        }
+
+    nuclei_reseg_out = RESEGMENT_NUCLEI( xenium_ch )
+    if( params.resegment_cells ) {
+            cells_reseg_out = RESEGMENT_CELLS( nuclei_reseg_out )
+    }
+        else {
+            cells_reseg_out = nuclei_reseg_out
+    }
+    detect_out        = DETECT_TISSUE( cells_reseg_out )
+    regions_ch     = detect_out.map { _bbox, regions, _fig, id -> tuple( regions, id ) }
+    convert_keyed  = cells_reseg_out.map { z, id -> tuple( id, z ) }
+    regions_keyed  = regions_ch.map { r, id -> tuple( id, r ) }
+
+    split_in   = convert_keyed.join( regions_keyed ).map { id, z, r -> tuple( z, r, id ) }
+    _split_out  = SPLIT_SAMPLES( split_in )
+}
