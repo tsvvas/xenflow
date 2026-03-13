@@ -50,11 +50,14 @@ workflow TEST {
     xenium_ch = channel
         .fromPath( params.test_zarr, checkIfExists: true )
         .map { zarr ->
-            def sample_id = zarr.baseName
+            def name = zarr.baseName
+            def idx = name.lastIndexOf('_')
+            def sample_id = name.substring(0, idx)
             tuple( zarr, sample_id )
         }
 
-    nuclei_reseg_out = RESEGMENT_NUCLEI( xenium_ch )
+    convert_out      = CONVERT_XENIUM( xenium_ch )
+    nuclei_reseg_out = RESEGMENT_NUCLEI( convert_out )
     if( params.resegment_cells ) {
             cells_reseg_out = RESEGMENT_CELLS( nuclei_reseg_out )
     }
