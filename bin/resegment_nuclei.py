@@ -12,7 +12,6 @@ from skimage.exposure import rescale_intensity
 from skimage.morphology import disk, white_tophat
 from skimage.restoration import rolling_ball
 
-DAPI_KEY = "DAPI"
 UNMIXED_DAPI_KEY = "dapi_unmixed"
 CELLPOSE_KEY = "cellpose_boundaries"
 STARDIST_KEY = "stardist_boundaries"
@@ -58,7 +57,7 @@ def _parse_args():
     parser.add_argument(
         "--unmix",
         action="store_true",
-        help=f"Compute an unmixed '{DAPI_KEY}' channel as '{UNMIXED_DAPI_KEY}' and use it.",
+        help=f"Compute an unmixed DAPI channel as '{UNMIXED_DAPI_KEY}' and use it.",
     )
     parser.add_argument(
         "--method",
@@ -257,11 +256,15 @@ def main():
     segment_config = json.loads(args.segment_config.read_bytes())
     patches_config = json.loads(args.patch_config.read_bytes())
 
-    if args.unmix:
-        image_key = sdata.attrs["xenflow"]["current"]["morphology_image"]
-        dapi_unmixed = unmix_channel(sdata.images[image_key], DAPI_KEY)
+    image_key = sdata.attrs["xenflow"]["current"]["morphology_image"]
+    channels = sdata.images[image_key]["scale0"].c.values
+
+    if args.unmix and len(channels) > 1:
+        dapi_unmixed = unmix_channel(sdata.images[image_key], channels[0])
         sdata.images[UNMIXED_DAPI_KEY] = dapi_unmixed
         sdata.attrs["xenflow"]["current"]["morphology_image"] = UNMIXED_DAPI_KEY
+    elif args.unmix and len(channels) == 1:
+        warnings.warn(f"Channel unmixing requested but image '{image_key}' has only one channel. Skipping...")
 
     image_key = sdata.attrs["xenflow"]["current"]["morphology_image"]
     warnings.warn(f"{image_key=}")
@@ -272,7 +275,7 @@ def main():
         sopa.segmentation.cellpose(
             sdata,
             image_key=image_key,
-            channels=[DAPI_KEY],
+            channels=[channels[0]],
             key_added=CELLPOSE_KEY,
             **segment_config,
         )
@@ -281,7 +284,7 @@ def main():
         sopa.segmentation.stardist(
             sdata,
             image_key=image_key,
-            channels=[DAPI_KEY],
+            channels=[channels[0]],
             key_added=STARDIST_KEY,
             **segment_config,
         )
