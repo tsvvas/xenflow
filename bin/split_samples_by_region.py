@@ -31,29 +31,12 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def validate_xenium_sdata(sdata):
-    if "xenium_table" not in sdata:
-        raise ValueError("SpatialData object doesn't have xenium table")
-    annotated_regions = sdata.get_annotated_regions(sdata.tables["xenium_table"])
-    if "cell_circles" not in annotated_regions:
-        raise ValueError("Xenium table is corrupted. The table doesn't annotate cell circles anymore")
-
-
-class InputError(Exception):
-    pass
-
-
 def main() -> None:
     args = _parse_args()
     sdata = sd.read_zarr(args.dataset_zarr)
     current_table = sdata.attrs["xenflow"]["current"]["tx_table"]
     current_nucleus = sdata.attrs["xenflow"]["current"]["nucleus_shapes"]
     sdata_filtered = sdata.subset(element_names=[current_nucleus, current_table])
-
-    # try:
-    #     validate_xenium_sdata(sdata)
-    # except ValueError as error:
-    #     raise InputError("The input xenium spatialdata object is invalid") from error
 
     sdata_regions = sd.read_zarr(args.regions_zarr)
 
