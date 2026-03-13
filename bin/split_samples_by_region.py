@@ -3,7 +3,6 @@ import argparse
 from pathlib import Path
 
 import geopandas as gpd
-import scanpy as sc
 import spatialdata as sd
 from shapely.geometry import Polygon
 
@@ -48,7 +47,8 @@ def main() -> None:
     args = _parse_args()
     sdata = sd.read_zarr(args.dataset_zarr)
     current_table = sdata.attrs["xenflow"]["current"]["tx_table"]
-    sdata_filtered = sdata.subset(element_names=[current_table])
+    current_nucleus = sdata.attrs["xenflow"]["current"]["nucleus_shapes"]
+    sdata_filtered = sdata.subset(element_names=[current_nucleus, current_table])
 
     # try:
     #     validate_xenium_sdata(sdata)
