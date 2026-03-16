@@ -29,22 +29,6 @@ workflow {
     _identify_out = IDENTIFY_PROGRAMS( identify_in )
 }
 
-workflow FIRST_HALF {
-    channel
-        .fromPath( params.xenium_dir, checkIfExists: true )
-        .map { p -> tuple( p, p.name.split('__')[1] ) }
-        .set { xenium_ch }
-
-    convert_out      = CONVERT_XENIUM( xenium_ch )
-    nuclei_reseg_out = RESEGMENT_NUCLEI( convert_out )
-    if( params.resegment_cells ) {
-            cells_reseg_out = RESEGMENT_CELLS( nuclei_reseg_out )
-        }
-        else {
-            cells_reseg_out = nuclei_reseg_out
-        }
-    _detect_out        = DETECT_TISSUE( cells_reseg_out )
-}
 
 workflow TEST {
     xenium_ch = channel
@@ -70,5 +54,8 @@ workflow TEST {
     regions_keyed  = regions_ch.map { r, id -> tuple( id, r ) }
 
     split_in   = convert_keyed.join( regions_keyed ).map { id, z, r -> tuple( z, r, id ) }
-    _split_out  = SPLIT_SAMPLES( split_in )
+    split_out  = SPLIT_SAMPLES( split_in )
+
+    identify_in   = split_out.flatMap { path, _sample_id -> path }
+    _identify_out = IDENTIFY_PROGRAMS( identify_in )
 }
