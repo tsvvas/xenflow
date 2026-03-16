@@ -4,7 +4,7 @@
  */
 process CONVERT_XENIUM {                         
     tag          "${sample_id}"
-    publishDir   "${workflow.launchDir}/${params.outdir_zarr}", mode: 'copy'
+    publishDir   "${workflow.launchDir}/${params.outdir_root}/${params.outdir_zarr}", mode: 'copy'
     container    "${params.containerdir}/sopa.sif"
 
     cpus           params.cpus
@@ -13,16 +13,16 @@ process CONVERT_XENIUM {
     queue          params.queue
     clusterOptions params.cluster_opts
 
+    beforeScript '''
+    export NUMBA_CACHE_DIR=${TMPDIR:-/tmp}
+    export MPLCONFIGDIR=${XDG_CACHE_HOME}/.matplotlib
+    '''
+
     input:
         tuple path(xenium_dir), val(sample_id)
 
     output:
         tuple path("${sample_id}.zarr"), val(sample_id)
-
-    beforeScript '''
-    export NUMBA_CACHE_DIR=${TMPDIR:-/tmp}
-    export MPLCONFIGDIR=${XDG_CACHE_HOME}/.matplotlib
-    '''
 
     script:
     """

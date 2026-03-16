@@ -6,7 +6,7 @@
 process SPLIT_SAMPLES {
 
     tag        "${sample_id}"
-    publishDir "${workflow.launchDir}/${params.outdir_h5ad}", mode: 'copy'
+    publishDir "${workflow.launchDir}/${params.outdir_root}/${params.outdir_h5ad}", mode: 'copy'
     container  "${params.containerdir}/sopa.sif"   
 
     cpus           params.cpus
@@ -15,16 +15,16 @@ process SPLIT_SAMPLES {
     queue          params.queue
     clusterOptions params.cluster_opts
 
+    beforeScript '''
+    export NUMBA_CACHE_DIR=${TMPDIR:-/tmp}
+    export MPLCONFIGDIR=${XDG_CACHE_HOME}/.matplotlib
+    '''
+
     input:
         tuple path(zarr_file), path(regions_zarr), val(sample_id)
 
     output:
         tuple path("${sample_id}_*.h5ad"), val(sample_id)
-
-    beforeScript '''
-    export NUMBA_CACHE_DIR=${TMPDIR:-/tmp}
-    export MPLCONFIGDIR=${XDG_CACHE_HOME}/.matplotlib
-    '''
 
     script:
     """

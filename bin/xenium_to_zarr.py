@@ -1,8 +1,21 @@
 #!/usr/bin/env python
 import argparse
+import warnings
 from pathlib import Path
 
+import spatialdata
 from spatialdata_io import xenium
+
+DEFAULT_XENFLOW_CONFIG = {
+    "current": {
+        "morphology_image": "morphology_focus",
+        "nucleus_shapes": "nucleus_boundaries",
+        "cell_shapes": "cell_boundaries",
+        "tx_table": "xenium_table",
+    },
+    "history": [],
+    "schema_version": "",
+}
 
 
 def main():
@@ -11,7 +24,12 @@ def main():
     p.add_argument("--out", required=True, type=Path)
     args = p.parse_args()
 
-    sdata = xenium(args.xenium_dir.resolve())
+    if args.xenium_dir.suffix == ".zarr":
+        sdata = spatialdata.read_zarr(args.xenium_dir.resolve())
+    else:
+        sdata = xenium(args.xenium_dir.resolve())
+    sdata.tables["xenium_table"] = sdata.tables["table"].copy()
+    sdata.attrs["xenflow"] = DEFAULT_XENFLOW_CONFIG
     sdata.write(args.out.resolve())
 
 

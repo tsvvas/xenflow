@@ -3,7 +3,6 @@ import argparse
 from pathlib import Path
 
 import geopandas as gpd
-import scanpy as sc
 import spatialdata as sd
 from shapely.geometry import Polygon
 
@@ -35,25 +34,28 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     sdata = sd.read_zarr(args.dataset_zarr)
+    current_table = sdata.attrs["xenflow"]["current"]["tx_table"]
+    current_nucleus = sdata.attrs["xenflow"]["current"]["nucleus_shapes"]
+    sdata_filtered = sdata.subset(element_names=[current_nucleus, current_table])
+
     sdata_regions = sd.read_zarr(args.regions_zarr)
 
-    sdata.shapes["regions"] = sdata_regions.shapes["regions"]
+    sdata_filtered.shapes["regions"] = sdata_regions.shapes["regions"]
 
-    regions_gdf: gpd.GeoDataFrame = sd.transform(sdata.shapes["regions"], to_coordinate_system="global")
+    regions_gdf: gpd.GeoDataFrame = sd.transform(sdata_filtered.shapes["regions"], to_coordinate_system="global")
 
     for _, row in regions_gdf.iterrows():
         region_id = str(row["region_id"])
         polygon: Polygon = row.geometry
 
-        roi_sdata = sdata.query.polygon(
+        roi_sdata = sdata_filtered.query.polygon(
             polygon=polygon,
             target_coordinate_system="global",
             filter_table=True,
             clip=False,
         )
 
-        adata = roi_sdata.tables["table"]
-        sc.pp.filter_cells(adata, min_counts=10)
+        adata = roi_sdata.tables[current_table]
         adata.obs["sample_uid"] = f"{args.sample_id}_{region_id}"
 
         out_path = Path(f"{args.sample_id}_{region_id}.h5ad").resolve()

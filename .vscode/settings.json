@@ -11,5 +11,10 @@
         }
     },
     "debugpy.debugJustMyCode": false,
-    "jupyter.debugJustMyCode": false
+    "jupyter.debugJustMyCode": false,
+    "notebook.defaultFormatter": "charliermarsh.ruff",
+    "nextflow.telemetry.enabled": false,
+    "terminal.integrated.env.linux": {
+        "PYTHONPATH": "${workspaceFolder}"
+    },
 }

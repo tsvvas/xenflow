@@ -4,12 +4,17 @@
  */
 process DETECT_TISSUE {
     tag        "${sample_id}"
-    publishDir "${workflow.launchDir}/${params.outdir_coords}", mode: 'copy'
+    publishDir "${workflow.launchDir}/${params.outdir_root}/${params.outdir_coords}", mode: 'copy'
     container  "${params.containerdir}/sopa.sif"
 
     cpus    params.cpus
     memory  params.mem
     time    params.time
+    
+    beforeScript '''
+    export NUMBA_CACHE_DIR=${TMPDIR:-/tmp}
+    export MPLCONFIGDIR=${XDG_CACHE_HOME}/.matplotlib
+    '''
 
     input:
         tuple path(zarr_file), val(sample_id)
@@ -20,11 +25,6 @@ process DETECT_TISSUE {
             path("${sample_id}_regions.zarr"), \
             path("${sample_id}_coords.png"), \
             val(sample_id)
-
-    beforeScript '''
-    export NUMBA_CACHE_DIR=${TMPDIR:-/tmp}
-    export MPLCONFIGDIR=${XDG_CACHE_HOME}/.matplotlib
-    '''
 
     script:
     """
