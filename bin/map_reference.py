@@ -8,7 +8,10 @@ import pandas as pd
 import scanpy as sc
 import tangram as tg
 
-LAYER_KEY = "counts"
+RAW_COUNTS = "counts"
+LOGSCALED_COUNTS = "scaled_counts"
+CLUSTER_COL = "leiden"
+UNASSIGNED_KEY = "Unassigned"
 
 
 def _parse_args():
@@ -33,13 +36,17 @@ def _parse_args():
     return args
 
 
-def cluster_adata(adata, hvg=True, n_top_genes=2000):
+def preprocess_standard(adata):
     sc.pp.filter_cells(adata, min_counts=10)
-    adata.layers[LAYER_KEY] = adata.X.copy()
+    adata.layers[RAW_COUNTS] = adata.X.copy()
     sc.pp.normalize_total(adata)
     sc.pp.log1p(adata)
-    if hvg:
-        sc.pp.highly_variable_genes(adata, n_top_genes=n_top_genes)
+    adata.layers[LOGSCALED_COUNTS] = adata.X.copy()
+    sc.pp.highly_variable_genes(adata)
+    return adata
+
+
+def cluster_adata(adata):
     sc.tl.pca(adata)
     sc.pp.neighbors(adata)
     sc.tl.umap(adata)
@@ -47,50 +54,17 @@ def cluster_adata(adata, hvg=True, n_top_genes=2000):
     return adata
 
 
-def bin_entropy(x, axis=1):
-    """Calculates Shannon entropy with the base of 2 on count data."""
-    x = np.atleast_2d(x).astype(int)
-
-    if axis == 0:
-        x = x.T
-
-    nrows, ncols = x.shape
-    nbins = x.max() + 1
-
-    counts = np.vstack([np.bincount(row, minlength=nbins) for row in x])
-
-    p = counts / float(ncols)
-    p = np.where(p > 0, p, 1)
-
-    return -np.sum(p * np.log2(p), axis=1)
-
-
-def calculate_cluster_entropy(adata, cluster_col):
-    X = adata.X.toarray()
-    cluster_labels = adata.obs[cluster_col].values
-    unique_clusters = np.unique(cluster_labels)
-    n_clusters = len(unique_clusters)
-
-    avg_gene_values = np.zeros((n_clusters, X.shape[1]))
-
-    for i, cluster in enumerate(unique_clusters):
-        cluster_indices = np.where(cluster_labels == cluster)[0]
-
-        avg_gene_values[i, :] = X[cluster_indices].mean(axis=0)
-
-    avg_gene_values_transposed = avg_gene_values.T
-
-    entropies = bin_entropy(avg_gene_values_transposed, axis=1)
-
-    return entropies
-
-
-def get_informative_genes(adata, cluster_col, threshold=0.01):
-    gene_names = adata.var_names
-    entropies = calculate_cluster_entropy(adata, cluster_col)
-    gene_entropies = zip(gene_names, entropies)
-    filtered_genes = filter(lambda x: x[1] > threshold, gene_entropies)
-    return [gene[0] for gene in filtered_genes]
+def get_marker_genes(adata_in, cluster_col, top_n):
+    adata = adata_in.copy()
+    adata.X = adata.layers[LOGSCALED_COUNTS]
+    sc.tl.rank_genes_groups(adata, groupby=cluster_col, use_raw=False, method="wilcoxon")
+    groups = adata.obs[cluster_col].astype("category").cat.categories
+    markers = []
+    for group in groups:
+        df = sc.get.rank_genes_groups_df(adata, group=group)
+        top_genes = df.sort_values("scores", ascending=False)["names"].head(top_n).tolist()
+        markers.extend(top_genes)
+    return markers
 
 
 def get_tangram_predictions(adata, perc=0, merge=True):
@@ -112,20 +86,26 @@ def get_tangram_predictions(adata, perc=0, merge=True):
 def main():
     args = _parse_args()
     adata_xm = sc.read(args.xenium_file.resolve())
+    adata_st = adata_xm.copy()
+    adata_st = preprocess_standard(adata_st)
+    adata_st = cluster_adata(adata_st)
+
     adata_sc = sc.read(args.reference_file.resolve())
+    adata_sc = preprocess_standard(adata_sc)
 
-    adata = adata_xm.copy()
-    adata = cluster_adata(adata)
-
-    genes_sc = get_informative_genes(adata_sc, args.cell_type_key)
-    genes_st = get_informative_genes(adata, "leiden")
+    genes_sc = get_marker_genes(adata_sc, args.cell_type_key, 10)
+    genes_st = get_marker_genes(adata_st, CLUSTER_COL, 10)
 
     genes_shared = np.intersect1d(genes_sc, genes_st)
-    tg.pp_adatas(adata_sc, adata, genes=genes_shared, gene_to_lowercase=False)
+
+    if genes_shared.shape[0] == 0:
+        raise ValueError("0 genes selected for mapping. Adjust the config or find a better reference.")
+
+    tg.pp_adatas(adata_sc, adata_st, genes=genes_shared, gene_to_lowercase=False)
 
     ad_map = tg.map_cells_to_space(
         adata_sc,
-        adata,
+        adata_st,
         mode="clusters",
         cluster_label=args.cell_type_key,
         density_prior="uniform",
@@ -137,14 +117,14 @@ def main():
     plt.savefig(args.training_plot, dpi=300, bbox_inches="tight")
     plt.close()
 
-    tg.project_cell_annotations(ad_map, adata, annotation=args.cell_type_key)
-    adata = get_tangram_predictions(adata)
+    tg.project_cell_annotations(ad_map, adata_st, annotation=args.cell_type_key)
+    adata_st = get_tangram_predictions(adata_st)
 
-    tangram_df = adata_xm.obs.join(adata.obs[["tangram_prediction", "tangram_score"]], how="left")
+    tangram_df = adata_xm.obs.join(adata_st.obs[["tangram_prediction", "tangram_score"]], how="left")
     adata_xm.obs = tangram_df
-    adata_xm.obs["tangram_prediction"] = adata_xm.obs["tangram_prediction"].fillna("unassigned")
+    adata_xm.obs["tangram_prediction"] = adata_xm.obs["tangram_prediction"].fillna(UNASSIGNED_KEY)
 
-    adata_xm.write_h5ad(args.out.resolve())
+    adata_st.write_h5ad(args.out.resolve())
 
 
 if __name__ == "__main__":
