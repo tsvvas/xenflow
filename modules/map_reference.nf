@@ -18,7 +18,9 @@ process MAP_REFERENCE {
         tuple path(h5ad_file), val(sample_id)
 
     output:
-        path "${h5ad_file.baseName}_mapped"
+        tuple \
+            path("${h5ad_file.baseName}_mapped.h5ad"), \
+            path("training_scores.png")
 
     script:
     """

@@ -28,7 +28,7 @@ workflow {
 
     map_out = MAP_REFERENCE( split_out )
 
-    identify_in   = map_out.flatMap { path, _sample_id -> path }
+    identify_in   = map_out.flatMap { path, _training_plot -> path }
     _identify_out = IDENTIFY_PROGRAMS( identify_in )
 }
 
@@ -61,6 +61,6 @@ workflow TEST {
 
     map_out = MAP_REFERENCE( split_out )
 
-    identify_in   = map_out.flatMap { path, _sample_id -> path }
+    identify_in   = map_out.flatMap { path, _training_plot -> path }
     _identify_out = IDENTIFY_PROGRAMS( identify_in )
 }
