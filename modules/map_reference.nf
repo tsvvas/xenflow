@@ -20,7 +20,8 @@ process MAP_REFERENCE {
     output:
         tuple \
             path("${h5ad_file.baseName}_mapped.h5ad"), \
-            path("training_scores.png")
+            path("${sample_id}_training_scores.png"), \
+            val(sample_id)
 
     script:
     """
@@ -33,7 +34,7 @@ process MAP_REFERENCE {
         --reference-file ${params.reference_dataset} \
         --out \${uid}_mapped.h5ad \
         --cell-type-key ${params.cell_type_key} \
-        --training-plot "training_scores.png"
+        --training-plot ${sample_id}_training_scores.png
     """
 
 }

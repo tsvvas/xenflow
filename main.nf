@@ -36,8 +36,7 @@ workflow {
     }
     _map_out = MAP_REFERENCE( map_in )
 
-    identify_in = map_in.map { h5ad, _id -> h5ad }
-    _identify_out = IDENTIFY_PROGRAMS( identify_in )
+    _identify_out = IDENTIFY_PROGRAMS( map_in )
 }
 
 
@@ -70,8 +69,7 @@ workflow TEST {
     map_in = split_out.flatMap { h5ads, id ->
         h5ads.collect { h5ad -> tuple(h5ad, id) }
     }
-    _map_out = MAP_REFERENCE(map_in)
+    _map_out = MAP_REFERENCE( map_in )
 
-    identify_in = map_in.map { h5ad, _id -> h5ad }
-    _identify_out = IDENTIFY_PROGRAMS( identify_in )
+    _identify_out = IDENTIFY_PROGRAMS( map_in )
 }
