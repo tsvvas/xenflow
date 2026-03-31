@@ -16,7 +16,12 @@ workflow {
 
     convert_out       = CONVERT_XENIUM( xenium_ch )
     nuclei_reseg_out  = RESEGMENT_NUCLEI( convert_out )
-    cells_reseg_out   = RESEGMENT_CELLS( nuclei_reseg_out )
+    if( params.resegment_cells ) {
+            cells_reseg_out = RESEGMENT_CELLS( nuclei_reseg_out )
+    }
+        else {
+            cells_reseg_out = nuclei_reseg_out
+    }
     detect_out        = DETECT_TISSUE( cells_reseg_out )
 
     regions_ch     = detect_out.map { _bbox, regions, _fig, id -> tuple( regions, id ) }
@@ -26,9 +31,12 @@ workflow {
     split_in   = convert_keyed.join( regions_keyed ).map { id, z, r -> tuple( z, r, id ) }
     split_out  = SPLIT_SAMPLES( split_in )
 
-    map_out = MAP_REFERENCE( split_out )
+    map_in = split_out.flatMap { h5ads, id ->
+        h5ads.collect { h5ad -> tuple(h5ad, id) }
+    }
+    _map_out = MAP_REFERENCE( map_in )
 
-    identify_in   = map_out.flatMap { path, _training_plot -> path }
+    identify_in = map_in.map { h5ad, _id -> h5ad }
     _identify_out = IDENTIFY_PROGRAMS( identify_in )
 }
 
@@ -59,8 +67,11 @@ workflow TEST {
     split_in   = convert_keyed.join( regions_keyed ).map { id, z, r -> tuple( z, r, id ) }
     split_out  = SPLIT_SAMPLES( split_in )
 
-    map_out = MAP_REFERENCE( split_out )
+    map_in = split_out.flatMap { h5ads, id ->
+        h5ads.collect { h5ad -> tuple(h5ad, id) }
+    }
+    _map_out = MAP_REFERENCE(map_in)
 
-    identify_in   = map_out.flatMap { path, _training_plot -> path }
+    identify_in = map_in.map { h5ad, _id -> h5ad }
     _identify_out = IDENTIFY_PROGRAMS( identify_in )
 }
