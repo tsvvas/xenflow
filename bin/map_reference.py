@@ -36,6 +36,18 @@ def _parse_args():
     return args
 
 
+def ensure_raw_counts(adata):
+    if RAW_COUNTS in adata.layers:
+        adata.X = adata.layers[RAW_COUNTS].copy()
+        return adata
+    if adata.raw is not None:
+        adata = adata.raw.to_adata()
+        return adata
+    if "log1p" in adata.uns:
+        raise ValueError("The data was log-transformed and raw counts are not available")
+    return adata
+
+
 def preprocess_standard(adata):
     sc.pp.filter_cells(adata, min_counts=10)
     adata.layers[RAW_COUNTS] = adata.X.copy()
@@ -57,14 +69,15 @@ def cluster_adata(adata):
 def get_marker_genes(adata_in, cluster_col, top_n):
     adata = adata_in.copy()
     adata.X = adata.layers[LOGSCALED_COUNTS]
-    sc.tl.rank_genes_groups(adata, groupby=cluster_col, use_raw=False, method="wilcoxon")
-    groups = adata.obs[cluster_col].astype("category").cat.categories
-    markers = []
-    for group in groups:
-        df = sc.get.rank_genes_groups_df(adata, group=group)
-        top_genes = df.sort_values("scores", ascending=False)["names"].head(top_n).tolist()
-        markers.extend(top_genes)
-    return markers
+    sc.tl.rank_genes_groups(
+        adata,
+        groupby=cluster_col,
+        use_raw=False,
+        method="wilcoxon",
+        n_genes=top_n,
+    )
+    df = sc.get.rank_genes_groups_df(adata, group=None)
+    return df["names"].drop_duplicates().tolist()
 
 
 def get_tangram_predictions(adata, perc=0, merge=True):
@@ -91,10 +104,11 @@ def main():
     adata_st = cluster_adata(adata_st)
 
     adata_sc = sc.read(args.reference_file.resolve())
+    adata_sc = ensure_raw_counts(adata_sc)
     adata_sc = preprocess_standard(adata_sc)
 
-    genes_sc = get_marker_genes(adata_sc, args.cell_type_key, 10)
-    genes_st = get_marker_genes(adata_st, CLUSTER_COL, 10)
+    genes_sc = get_marker_genes(adata_sc, args.cell_type_key, 100)
+    genes_st = get_marker_genes(adata_st, CLUSTER_COL, 100)
 
     genes_shared = np.intersect1d(genes_sc, genes_st)
 
