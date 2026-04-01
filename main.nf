@@ -31,8 +31,8 @@ workflow {
     split_in   = convert_keyed.join( regions_keyed ).map { id, z, r -> tuple( z, r, id ) }
     split_out  = SPLIT_SAMPLES( split_in )
 
-    map_in = split_out.flatMap { h5ads, id ->
-        h5ads.collect { h5ad -> tuple(h5ad, id) }
+    map_in = split_out.flatMap { h5ads, _id ->
+        h5ads.collect { h5ad -> tuple(h5ad, h5ad.baseName) }
     }
     _map_out = MAP_REFERENCE( map_in )
 
@@ -66,8 +66,8 @@ workflow TEST {
     split_in   = convert_keyed.join( regions_keyed ).map { id, z, r -> tuple( z, r, id ) }
     split_out  = SPLIT_SAMPLES( split_in )
 
-    map_in = split_out.flatMap { h5ads, id ->
-        h5ads.collect { h5ad -> tuple(h5ad, id) }
+    map_in = split_out.flatMap { h5ads, _id ->
+        h5ads.collect { h5ad -> tuple(h5ad, h5ad.baseName) }
     }
     _map_out = MAP_REFERENCE( map_in )
 
