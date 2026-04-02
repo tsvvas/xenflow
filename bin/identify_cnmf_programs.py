@@ -17,12 +17,14 @@ import re
 from pathlib import Path
 
 import numpy as np
+import scanpy as sc
 from cnmf import cNMF
 
 
 def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--h5ad", required=True, type=Path, help=".h5ad produced by SPLIT_SAMPLES")
+    ap.add_argument("--h5ad", required=True, type=Path, help=".h5ad file")
+    ap.add_argument("--id", required=True, help="Sample id")
     ap.add_argument("--out-dir", required=True, type=Path, help="Directory to create (will be <uid>_cnmf)")
     ap.add_argument(
         "--components", default="10,15,20", type=parse_comma_ints, help="Comma-separated list of k; e.g. 5,10,15"
@@ -51,9 +53,16 @@ def main() -> None:
     args = _parse_args()
     k_list = np.arange(*args.components)
 
+    # Filtering before CNMF analysis
+    adata = sc.read(args.h5ad)
+    sc.pp.filter_cells(adata, min_counts=10)
+    sc.pp.filter_genes(adata, min_cells=5)
+    adata_path = args.id + ".h5ad"
+    adata.write_h5ad(adata_path)
+
     cnmf = cNMF(name=args.out_dir.as_posix())
     cnmf.prepare(
-        counts_fn=args.h5ad.as_posix(),
+        counts_fn=adata_path,
         components=k_list,
         n_iter=args.n_iter,
         num_highvar_genes=args.num_highvar_genes,

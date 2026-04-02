@@ -13,20 +13,20 @@ process IDENTIFY_PROGRAMS {
     time    params.time
 
     input:
-        path h5ad_file
+        tuple path(h5ad_file), val(sample_id)
 
     output:
-        path "${h5ad_file.baseName}_cnmf"
+        path "${sample_id}_cnmf"
 
     script:
     """
-    export uid=${h5ad_file.baseName}
     source /opt/conda/etc/profile.d/conda.sh
     conda activate spatial
 
     identify_cnmf_programs.py \
         --h5ad              ${h5ad_file} \
-        --out-dir           \${uid}_cnmf \
+        --id                ${sample_id} \
+        --out-dir           ${sample_id}_cnmf \
         --components        ${params.cnmf_components} \
         --n-iter            ${params.cnmf_n_iter} \
         --num-highvar-genes ${params.cnmf_n_highvar} \
