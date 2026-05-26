@@ -4,6 +4,7 @@ import json
 import warnings
 from pathlib import Path
 
+import numpy as np
 import spatialdata as sd
 from shapely.geometry import box
 
@@ -31,6 +32,25 @@ def get_region_data(meta, sample_id):
     return meta[record]["sample_coords"]
 
 
+def transform_bounding_rects(bounding_rects: list, affine_matrix: np.ndarray) -> list:
+    transformed_rects = []
+    for x1, y1, x2, y2 in bounding_rects:
+        corners = np.array([[x1, y1, 1], [x2, y1, 1], [x1, y2, 1], [x2, y2, 1]])
+        transformed_corners = (affine_matrix @ corners.T).T
+
+        transformed_x = transformed_corners[:, 0]
+        transformed_y = transformed_corners[:, 1]
+
+        new_x1 = transformed_x.min()
+        new_y1 = transformed_y.min()
+        new_x2 = transformed_x.max()
+        new_y2 = transformed_y.max()
+
+        transformed_rects.append((new_x1, new_y1, new_x2, new_y2))
+
+    return transformed_rects
+
+
 def main():
     args = _parse_args()
     sdata = sd.read_zarr(args.xenium_file)
@@ -43,7 +63,13 @@ def main():
 
     for region_name, region_data in regions.items():
         new_sample_id = f"{args.sample_id}_{region_name}"
-        bbox = box(*region_data["coordinates"])
+        coords = region_data["coordinates"]
+        tf2global = sd.transformations.get_transformation(sdata.shapes["cell_boundaries"]).to_affine_matrix(
+            input_axes=("x", "y"),
+            output_axes=("x", "y"),
+        )
+        transformed_coords = transform_bounding_rects([coords], tf2global)[0]
+        bbox = box(*transformed_coords)
 
         roi_sdata = sdata_filtered.query.polygon(
             polygon=bbox,
