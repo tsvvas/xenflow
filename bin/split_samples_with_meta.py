@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import spatialdata as sd
 from shapely.geometry import box
+from spatialdata.models import get_table_keys
 
 
 def _parse_args() -> argparse.Namespace:
@@ -55,8 +56,9 @@ def main():
     args = _parse_args()
     sdata = sd.read_zarr(args.xenium_file)
     current_table = sdata.attrs["xenflow"]["current"]["tx_table"]
-    current_nucleus = sdata.attrs["xenflow"]["current"]["nucleus_shapes"]
-    sdata_filtered = sdata.subset(element_names=[current_nucleus, current_table])
+    regions, _, _ = get_table_keys(sdata.tables[current_table])
+    regions = [regions] if isinstance(regions, str) else list(regions)
+    sdata_filtered = sdata.subset(element_names=regions + [current_table])
 
     meta = json.loads(args.metadata_file.read_text(encoding="utf-8"))
     regions = get_region_data(meta, args.sample_id)

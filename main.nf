@@ -13,11 +13,27 @@ workflow {
 
     channel
         .fromPath( params.xenium_dir, type: 'dir', checkIfExists: true )
-        .map { p -> tuple( p, p.name.split('__')[1] ) }
+        .map { p ->
+            def bundle = p.resolve('experiment.xenium').exists()
+                ? p
+                : p.resolve('outs')
+
+            def name = p.name == 'outs' ? p.parent.name : p.name
+            def sample_id = name.contains('__')
+                ? name.split('__')[1]
+                : name.split('_')[2]
+
+            tuple(bundle, sample_id)
+        }
         .set { xenium_ch }
 
-    convert_out       = CONVERT_XENIUM( xenium_ch )
-    nuclei_reseg_out  = RESEGMENT_NUCLEI( convert_out )
+    convert_out = CONVERT_XENIUM( xenium_ch )
+
+    if ( params.resegment_nuclei ) {
+        nuclei_reseg_out = RESEGMENT_NUCLEI(convert_out)
+    } else {
+        nuclei_reseg_out = convert_out
+    }
     if( params.resegment_cells ) {
             cells_reseg_out = RESEGMENT_CELLS( nuclei_reseg_out )
     }
@@ -56,8 +72,13 @@ workflow TEST {
             tuple( zarr, sample_id )
         }
 
-    convert_out      = CONVERT_XENIUM( xenium_ch )
-    nuclei_reseg_out = RESEGMENT_NUCLEI( convert_out )
+    convert_out = CONVERT_XENIUM( xenium_ch )
+
+    if ( params.resegment_nuclei ) {
+        nuclei_reseg_out = RESEGMENT_NUCLEI(convert_out)
+    } else {
+        nuclei_reseg_out = convert_out
+    }
     if( params.resegment_cells ) {
             cells_reseg_out = RESEGMENT_CELLS( nuclei_reseg_out )
     }
