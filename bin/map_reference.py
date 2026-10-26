@@ -138,7 +138,7 @@ def main():
     adata_xm.obs = tangram_df
     adata_xm.obs["tangram_prediction"] = adata_xm.obs["tangram_prediction"].fillna(UNASSIGNED_KEY)
 
-    adata_st.write_h5ad(args.out.resolve())
+    adata_xm.write_h5ad(args.out.resolve())
 
 
 if __name__ == "__main__":
