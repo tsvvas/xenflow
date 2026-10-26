@@ -1,26 +1,35 @@
 import java.nio.file.Files
-import java.nio.file.Path
+import nextflow.Nextflow
 
 class ConfigValidator {
-    static void validate(List<Path> xeniumBundles, Path metadataFile, Path referenceFile, String projectDir) {
+    static void validate(Map params) {
         def errors = []
 
-        if (!projectDir?.trim()) {
+        if (!System.getenv('PROJECTDIR')?.trim()) {
             errors << 'PROJECTDIR must be set to a nonempty value.'
         }
 
-        xeniumBundles.each { bundle ->
-            if (!Files.isRegularFile(bundle.resolve('experiment.xenium')) &&
-                !Files.isRegularFile(bundle.resolve('outs/experiment.xenium'))) {
-                errors << "Xenium bundle '${bundle}' must contain experiment.xenium or outs/experiment.xenium."
+        if (params.xenium_dir) {
+            def inputs = params.xenium_dir instanceof List ? params.xenium_dir : [params.xenium_dir]
+            inputs.each { input ->
+                Nextflow.files([type: 'dir', checkIfExists: true], input).each { bundle ->
+                    if (!Files.isRegularFile(bundle.resolve('experiment.xenium')) &&
+                        !Files.isRegularFile(bundle.resolve('outs/experiment.xenium'))) {
+                        errors << "Xenium bundle '${bundle}' must contain experiment.xenium or outs/experiment.xenium."
+                    }
+                }
             }
         }
 
-        if (metadataFile != null && !Files.isRegularFile(metadataFile)) {
-            errors << "Custom metadata file does not exist or is not a file: '${metadataFile}'."
+        if (params.map_reference && !params.reference_dataset) {
+            errors << 'Reference mapping requires --reference_dataset.'
         }
-        if (referenceFile != null && !Files.isRegularFile(referenceFile)) {
-            errors << "Reference dataset does not exist or is not a file: '${referenceFile}'."
+
+        [metadata_file: 'Custom metadata file', reference_dataset: 'Reference dataset'].each { key, label ->
+            def value = params[key]
+            if (value && !Files.isRegularFile(Nextflow.file([glob: false], value))) {
+                errors << "${label} does not exist or is not a file: '${value}'."
+            }
         }
 
         if (errors) {
