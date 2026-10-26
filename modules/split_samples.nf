@@ -27,13 +27,26 @@ process SPLIT_SAMPLES {
         tuple path("${sample_id}_*.h5ad"), val(sample_id)
 
     script:
+    def by_meta_cmd = """
+    split_samples_with_meta.py \\
+        --xenium-file   ${zarr_file} \\
+        --sample-id     ${sample_id} \\
+        --metadata-file ${params.metadata_file}
+    """
+
+    def by_contour_cmd = """
+    split_samples_by_region.py \\
+        --dataset-zarr  ${zarr_file} \\
+        --regions-zarr  ${regions_zarr} \\
+        --sample-id     ${sample_id}
+    """
+
+    def cmd = params.metadata_file ? by_meta_cmd : by_contour_cmd
+
     """
     source /opt/conda/etc/profile.d/conda.sh
     conda activate spatial
 
-    split_samples_by_region.py \
-        --dataset-zarr  ${zarr_file} \
-        --regions-zarr  ${regions_zarr} \
-        --sample-id     ${sample_id} \
+    ${cmd}
     """
 }
