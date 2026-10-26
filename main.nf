@@ -9,8 +9,17 @@ include { MAP_REFERENCE }       from './modules/map_reference.nf'
 include { IDENTIFY_PROGRAMS }   from './modules/identify_programs.nf'
 
 workflow {
+    xenium_paths = (params.xenium_dir instanceof List ? params.xenium_dir : [params.xenium_dir])
+        .collectMany { p -> files(p, type: 'dir', checkIfExists: true) }
+    ConfigValidator.validate(
+        xenium_paths,
+        params.metadata_file ? file(params.metadata_file, glob: false) : null,
+        params.reference_dataset ? file(params.reference_dataset, glob: false) : null,
+        System.getenv('PROJECTDIR')
+    )
+
     channel
-        .fromPath( params.xenium_dir, checkIfExists: true )
+        .fromList( xenium_paths )
         .map { p -> tuple( p, p.name.split('__')[1] ) }
         .set { xenium_ch }
 
@@ -34,13 +43,22 @@ workflow {
     map_in = split_out.flatMap { h5ads, _id ->
         h5ads.collect { h5ad -> tuple(h5ad, h5ad.baseName) }
     }
-    _map_out = MAP_REFERENCE( map_in )
+    if (params.map_reference) {
+        MAP_REFERENCE( map_in )
+    }
 
     _identify_out = IDENTIFY_PROGRAMS( map_in )
 }
 
 
 workflow TEST {
+    ConfigValidator.validate(
+        [],
+        params.metadata_file ? file(params.metadata_file, glob: false) : null,
+        params.reference_dataset ? file(params.reference_dataset, glob: false) : null,
+        System.getenv('PROJECTDIR')
+    )
+    
     xenium_ch = channel
         .fromPath( params.test_zarr, checkIfExists: true )
         .map { zarr ->
