@@ -9,8 +9,10 @@ include { MAP_REFERENCE }       from './modules/map_reference.nf'
 include { IDENTIFY_PROGRAMS }   from './modules/identify_programs.nf'
 
 workflow {
+    ConfigValidator.validate(params)
+
     channel
-        .fromPath( params.xenium_dir, checkIfExists: true )
+        .fromPath( params.xenium_dir, type: 'dir', checkIfExists: true )
         .map { p -> tuple( p, p.name.split('__')[1] ) }
         .set { xenium_ch }
 
@@ -34,13 +36,17 @@ workflow {
     map_in = split_out.flatMap { h5ads, _id ->
         h5ads.collect { h5ad -> tuple(h5ad, h5ad.baseName) }
     }
-    _map_out = MAP_REFERENCE( map_in )
+    if (params.map_reference) {
+        MAP_REFERENCE( map_in )
+    }
 
     _identify_out = IDENTIFY_PROGRAMS( map_in )
 }
 
 
 workflow TEST {
+    ConfigValidator.validate(params)
+    
     xenium_ch = channel
         .fromPath( params.test_zarr, checkIfExists: true )
         .map { zarr ->
@@ -69,7 +75,9 @@ workflow TEST {
     map_in = split_out.flatMap { h5ads, _id ->
         h5ads.collect { h5ad -> tuple(h5ad, h5ad.baseName) }
     }
-    _map_out = MAP_REFERENCE( map_in )
+    if (params.map_reference) {
+        MAP_REFERENCE(map_in)
+    }
 
     _identify_out = IDENTIFY_PROGRAMS( map_in )
 }
