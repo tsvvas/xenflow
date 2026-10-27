@@ -57,7 +57,7 @@ def main() -> None:
     adata = sc.read(args.h5ad)
     sc.pp.filter_cells(adata, min_counts=10)
     sc.pp.filter_genes(adata, min_cells=5)
-    adata_path = args.id + ".h5ad"
+    adata_path = f"{args.id}_cnmf_input.h5ad"
     adata.write_h5ad(adata_path)
 
     cnmf = cNMF(name=args.out_dir.as_posix())

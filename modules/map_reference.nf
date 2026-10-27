@@ -6,7 +6,7 @@
 process MAP_REFERENCE {
     tag        "${sample_id}"
     publishDir "${workflow.launchDir}/${params.outdir_root}/${params.outdir_mapped}", mode: 'copy'
-    container  "${params.containerdir}/sopa_gpu.sif" 
+    container  "${params.containerdir}/sopa.sif" 
 
     cpus           params.cpus
     memory         params.mem
