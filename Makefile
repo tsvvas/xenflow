@@ -29,6 +29,6 @@ nf_run:
 	source ~/.bash_profile
 	conda run -n $(ENV_NAME) \
 		nextflow run . \
-			-c $(RUN_CONFIG) \
 			-c $(RESOURCES_CONFIG) \
+			-c $(RUN_CONFIG) \
 			$(RUN_ARGS)
